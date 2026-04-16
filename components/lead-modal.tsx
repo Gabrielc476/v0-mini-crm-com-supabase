@@ -80,16 +80,21 @@ export function LeadModal({ lead, isOpen, onClose, onUpdate, onCreate, onDelete 
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    console.log('[v0] handleSubmit called')
     setSaving(true)
 
-    const { data: { user } } = await supabase.auth.getUser()
+    const { data: { user }, error: userError } = await supabase.auth.getUser()
+    console.log('[v0] getUser result:', { user: user?.id, userError })
+    
     if (!user) {
+      console.log('[v0] No user found, aborting')
       setSaving(false)
       return
     }
 
     if (lead) {
       // Update existing lead
+      console.log('[v0] Updating lead:', lead.id)
       const { data, error } = await supabase
         .from('leads')
         .update({
@@ -106,11 +111,13 @@ export function LeadModal({ lead, isOpen, onClose, onUpdate, onCreate, onDelete 
         .select()
         .single()
 
+      console.log('[v0] Update result:', { data, error })
       if (!error && data) {
         onUpdate(data)
       }
     } else {
       // Create new lead
+      console.log('[v0] Creating new lead with data:', { ...formData, user_id: user.id })
       const { data, error } = await supabase
         .from('leads')
         .insert({
@@ -126,6 +133,10 @@ export function LeadModal({ lead, isOpen, onClose, onUpdate, onCreate, onDelete 
         .select()
         .single()
 
+      console.log('[v0] Insert result:', { data, error })
+      if (error) {
+        console.error('[v0] Error creating lead:', error)
+      }
       if (!error && data) {
         onCreate(data)
       }
