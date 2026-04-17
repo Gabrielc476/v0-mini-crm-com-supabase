@@ -1,5 +1,4 @@
 import { createClient } from '@/lib/supabase/server'
-import { redirect } from 'next/navigation'
 import { Sidebar } from '@/components/sidebar'
 
 export default async function DashboardLayout({
@@ -8,15 +7,12 @@ export default async function DashboardLayout({
   children: React.ReactNode
 }) {
   const supabase = await createClient()
+  // Só pegamos o usuário para passar o email pra Sidebar, sem dar redirect aqui!
   const { data: { user } } = await supabase.auth.getUser()
-
-  if (!user) {
-    redirect('/auth/login')
-  }
 
   return (
     <div className="flex min-h-screen">
-      <Sidebar userEmail={user.email || ''} />
+      <Sidebar userEmail={user?.email || ''} />
       <main className="flex-1 p-6 overflow-auto">
         {children}
       </main>
