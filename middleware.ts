@@ -2,6 +2,8 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function middleware(request: NextRequest) {
+  console.log('🚧 [Middleware] Interceptando Rota:', request.nextUrl.pathname)
+
   let supabaseResponse = NextResponse.next({
     request,
   })
@@ -27,21 +29,19 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  // Valida a sessão lendo o cookie
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const { data: { user }, error } = await supabase.auth.getUser()
 
-  // A Trava: Se tentar ir pro dashboard sem estar logado, volta pro login
-  if (
-    request.nextUrl.pathname.startsWith('/dashboard') &&
-    !user
-  ) {
+  console.log('🕵️ [Middleware] Usuário Logado:', user?.email || 'NENHUM COOKIE ENCONTRADO')
+  if (error) console.log('❌ [Middleware] Erro Auth:', error.message)
+
+  if (request.nextUrl.pathname.startsWith('/dashboard') && !user) {
+    console.log('⛔ [Middleware] Acesso Negado! Chutando para o Login.')
     const url = request.nextUrl.clone()
     url.pathname = '/auth/login'
     return NextResponse.redirect(url)
   }
 
+  console.log('✅ [Middleware] Acesso Liberado para:', request.nextUrl.pathname)
   return supabaseResponse
 }
 
