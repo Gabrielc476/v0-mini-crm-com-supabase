@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Lead, LeadStatus, LEAD_STATUS_CONFIG } from '@/lib/types'
+import { Lead, LeadStage, LEAD_STAGE_CONFIG } from '@/lib/types'
 import { createClient } from '@/lib/supabase/client'
 import { LeadCard } from './lead-card'
 import { LeadModal } from './lead-modal'
@@ -11,7 +11,16 @@ interface KanbanBoardProps {
   initialLeads: Lead[]
 }
 
-const KANBAN_COLUMNS: LeadStatus[] = ['novo', 'contactado', 'qualificado', 'proposta', 'ganho', 'perdido']
+// Colunas atualizadas com as etapas reais do seu funil
+const KANBAN_COLUMNS: LeadStage[] = [
+  'Base',
+  'Lead Mapeado',
+  'Tentando Contato',
+  'Conexão Iniciada',
+  'Qualificado',
+  'Reunião Agendada',
+  'Desqualificado'
+]
 
 export function KanbanBoard({ initialLeads }: KanbanBoardProps) {
   const [leads, setLeads] = useState<Lead[]>(initialLeads)
@@ -28,25 +37,28 @@ export function KanbanBoard({ initialLeads }: KanbanBoardProps) {
     e.preventDefault()
   }
 
-  const handleDrop = async (status: LeadStatus) => {
-    if (!draggedLead || draggedLead.status === status) {
+  // Lógica de Drop atualizada para usar 'stage' em vez de 'status'
+  const handleDrop = async (stage: LeadStage) => {
+    if (!draggedLead || draggedLead.stage === stage) {
       setDraggedLead(null)
       return
     }
 
-    // Optimistic update
-    setLeads(prev => prev.map(lead => 
-      lead.id === draggedLead.id ? { ...lead, status } : lead
+    // Optimistic update (Atualiza a tela instantaneamente)
+    setLeads(prev => prev.map(lead =>
+      lead.id === draggedLead.id ? { ...lead, stage } : lead
     ))
 
+    // Atualiza no Supabase na coluna correta ('stage')
     const { error } = await supabase
       .from('leads')
-      .update({ status, updated_at: new Date().toISOString() })
+      .update({ stage, updated_at: new Date().toISOString() })
       .eq('id', draggedLead.id)
 
     if (error) {
-      // Revert on error
-      setLeads(prev => prev.map(lead => 
+      console.error('Erro ao mover lead:', error)
+      // Reverte a ação na tela caso dê erro no banco
+      setLeads(prev => prev.map(lead =>
         lead.id === draggedLead.id ? draggedLead : lead
       ))
     }
@@ -65,7 +77,7 @@ export function KanbanBoard({ initialLeads }: KanbanBoardProps) {
   }
 
   const handleLeadUpdate = (updatedLead: Lead) => {
-    setLeads(prev => prev.map(lead => 
+    setLeads(prev => prev.map(lead =>
       lead.id === updatedLead.id ? updatedLead : lead
     ))
     setSelectedLead(updatedLead)
@@ -83,41 +95,42 @@ export function KanbanBoard({ initialLeads }: KanbanBoardProps) {
 
   return (
     <div className="h-full">
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold">Pipeline de Vendas</h2>
+      <div className="flex items-center justify-between mb-8">
+        <h2 className="text-3xl font-bold tracking-tight">Pipeline de Vendas</h2>
         <button
           onClick={handleCreateLead}
-          className="flex items-center gap-2 px-4 py-2 bg-accent text-accent-foreground font-bold neo-button rounded-lg"
+          className="flex items-center gap-2 px-6 py-3 bg-yellow-400 text-black border-4 border-black font-bold uppercase shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-all"
         >
           <Plus className="w-5 h-5" />
           Novo Lead
         </button>
       </div>
 
-      <div className="flex gap-4 overflow-x-auto pb-4">
-        {KANBAN_COLUMNS.map(status => {
-          const config = LEAD_STATUS_CONFIG[status]
-          const columnLeads = leads.filter(lead => lead.status === status)
+      <div className="flex gap-6 overflow-x-auto pb-8 snap-x">
+        {KANBAN_COLUMNS.map(stage => {
+          const config = LEAD_STAGE_CONFIG[stage]
+          // Filtro atualizado para 'stage'
+          const columnLeads = leads.filter(lead => lead.stage === stage)
 
           return (
             <div
-              key={status}
-              className="flex-shrink-0 w-72"
+              key={stage}
+              className="shrink-0 w-80 snap-start"
               onDragOver={handleDragOver}
-              onDrop={() => handleDrop(status)}
+              onDrop={() => handleDrop(stage)}
             >
-              <div className={`${config.bgColor} neo-border rounded-lg p-3 mb-3`}>
+              <div className={`${config.bgColor} border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] p-4 mb-6 rounded-none`}>
                 <div className="flex items-center justify-between">
-                  <h3 className={`font-bold uppercase text-sm tracking-wide ${config.color}`}>
+                  <h3 className={`font-bold uppercase text-sm tracking-widest ${config.color}`}>
                     {config.label}
                   </h3>
-                  <span className={`${config.color} font-bold text-sm neo-border-sm bg-background px-2 py-0.5 rounded`}>
+                  <span className={`font-bold text-sm border-2 border-black bg-white px-2 py-0.5 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]`}>
                     {columnLeads.length}
                   </span>
                 </div>
               </div>
 
-              <div className="space-y-3 min-h-96">
+              <div className="space-y-4 min-h-[500px] border-2 border-dashed border-gray-300 p-2 bg-gray-50/50">
                 {columnLeads.map(lead => (
                   <LeadCard
                     key={lead.id}
