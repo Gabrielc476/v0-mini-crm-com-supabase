@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Lead, LeadStatus, MessageType, GeneratedMessage, LEAD_STATUS_CONFIG } from '@/lib/types'
+import { Lead, GeneratedMessage } from '@/lib/types'
 import { createClient } from '@/lib/supabase/client'
 import { X, Trash2, Mail, MessageCircle, Linkedin, Sparkles, Copy, Check, Loader2 } from 'lucide-react'
 
