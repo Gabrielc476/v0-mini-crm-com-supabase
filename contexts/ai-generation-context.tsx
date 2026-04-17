@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useCallback, ReactNode } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { MessageGenerationModal } from '@/components/message-generation-modal'
 
 export interface GenerationTask {
   id: string
@@ -9,7 +10,8 @@ export interface GenerationTask {
   leadName: string
   campaignId: string
   campaignName: string
-  status: 'pending' | 'generating' | 'success' | 'error'
+  status: 'generating' | 'success' | 'error'
+  message?: string
   error?: string
   createdAt: Date
 }
@@ -26,16 +28,17 @@ const AIGenerationContext = createContext<AIGenerationContextType | null>(null)
 
 export function AIGenerationProvider({ children }: { children: ReactNode }) {
   const [tasks, setTasks] = useState<GenerationTask[]>([])
+  const [activeTaskId, setActiveTaskId] = useState<string | null>(null)
   const supabase = createClient()
 
   const startGeneration = useCallback(async (
-    leadId: string, 
-    leadName: string, 
-    campaignId: string, 
+    leadId: string,
+    leadName: string,
+    campaignId: string,
     campaignName: string
   ) => {
     const taskId = `${leadId}-${Date.now()}`
-    
+
     // Adiciona a task como pending
     const newTask: GenerationTask = {
       id: taskId,
@@ -47,7 +50,8 @@ export function AIGenerationProvider({ children }: { children: ReactNode }) {
       createdAt: new Date()
     }
 
-    setTasks(prev => [newTask, ...prev])
+    setTasks((prev: GenerationTask[]) => [newTask, ...prev])
+    setActiveTaskId(taskId)
 
     // Executa a geração em background
     try {
@@ -57,9 +61,9 @@ export function AIGenerationProvider({ children }: { children: ReactNode }) {
 
       if (error) {
         let errorMessage = 'Erro ao gerar mensagem'
-        
+
         const serverMessage = error.context?.error || error.message || ''
-        
+
         if (serverMessage.includes('Acesso negado') || error.message.includes('401')) {
           errorMessage = 'Sessão expirada. Faça login novamente.'
         } else if (serverMessage.includes('TIMEOUT') || error.message.includes('546') || error.message.includes('504')) {
@@ -68,8 +72,8 @@ export function AIGenerationProvider({ children }: { children: ReactNode }) {
           errorMessage = 'Erro ao salvar mensagem no banco.'
         }
 
-        setTasks(prev => prev.map(t => 
-          t.id === taskId 
+        setTasks((prev: GenerationTask[]) => prev.map((t: GenerationTask) =>
+          t.id === taskId
             ? { ...t, status: 'error', error: errorMessage }
             : t
         ))
@@ -77,15 +81,16 @@ export function AIGenerationProvider({ children }: { children: ReactNode }) {
       }
 
       if (data?.success) {
-        setTasks(prev => prev.map(t => 
-          t.id === taskId 
-            ? { ...t, status: 'success' }
+        const generatedMessage = data.messages ? data.messages.join('\n\n-----\n\n') : 'Mensagem gerada com sucesso!'
+        setTasks((prev: GenerationTask[]) => prev.map((t: GenerationTask) =>
+          t.id === taskId
+            ? { ...t, status: 'success', message: generatedMessage }
             : t
         ))
       }
     } catch (err: any) {
-      setTasks(prev => prev.map(t => 
-        t.id === taskId 
+      setTasks((prev: GenerationTask[]) => prev.map((t: GenerationTask) =>
+        t.id === taskId
           ? { ...t, status: 'error', error: err.message || 'Erro inesperado' }
           : t
       ))
@@ -93,24 +98,34 @@ export function AIGenerationProvider({ children }: { children: ReactNode }) {
   }, [supabase])
 
   const clearCompletedTasks = useCallback(() => {
-    setTasks(prev => prev.filter(t => t.status === 'generating'))
+    setTasks((prev: GenerationTask[]) => prev.filter((t: GenerationTask) => t.status === 'generating'))
   }, [])
 
   const clearTask = useCallback((taskId: string) => {
-    setTasks(prev => prev.filter(t => t.id !== taskId))
+    setTasks((prev: GenerationTask[]) => prev.filter((t: GenerationTask) => t.id !== taskId))
   }, [])
 
-  const pendingCount = tasks.filter(t => t.status === 'generating').length
+  const pendingCount = tasks.filter((t: GenerationTask) => t.status === 'generating').length
+  const activeTask = tasks.find((t: GenerationTask) => t.id === activeTaskId)
 
   return (
-    <AIGenerationContext.Provider value={{ 
-      tasks, 
-      pendingCount, 
-      startGeneration, 
+    <AIGenerationContext.Provider value={{
+      tasks,
+      pendingCount,
+      startGeneration,
       clearCompletedTasks,
-      clearTask 
+      clearTask
     }}>
       {children}
+      <MessageGenerationModal
+        isOpen={!!activeTaskId && !!activeTask}
+        onClose={() => setActiveTaskId(null)}
+        leadName={activeTask?.leadName || ''}
+        campaignName={activeTask?.campaignName || ''}
+        status={activeTask?.status || 'generating'}
+        message={activeTask?.message || null}
+        error={activeTask?.error || null}
+      />
     </AIGenerationContext.Provider>
   )
 }
