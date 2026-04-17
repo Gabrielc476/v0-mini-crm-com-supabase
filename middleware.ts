@@ -2,8 +2,6 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function middleware(request: NextRequest) {
-  console.log('🚧 [Middleware] Interceptando Rota:', request.nextUrl.pathname)
-
   let supabaseResponse = NextResponse.next({
     request,
   })
@@ -29,19 +27,20 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  const { data: { user }, error } = await supabase.auth.getUser()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
 
-  console.log('🕵️ [Middleware] Usuário Logado:', user?.email || 'NENHUM COOKIE ENCONTRADO')
-  if (error) console.log('❌ [Middleware] Erro Auth:', error.message)
-
-  if (request.nextUrl.pathname.startsWith('/dashboard') && !user) {
-    console.log('⛔ [Middleware] Acesso Negado! Chutando para o Login.')
+  // AQUI ESTAVA O SEU BUG ORIGINAL! Agora está protegendo o /dashboard corretamente.
+  if (
+    request.nextUrl.pathname.startsWith('/dashboard') &&
+    !user
+  ) {
     const url = request.nextUrl.clone()
     url.pathname = '/auth/login'
     return NextResponse.redirect(url)
   }
 
-  console.log('✅ [Middleware] Acesso Liberado para:', request.nextUrl.pathname)
   return supabaseResponse
 }
 

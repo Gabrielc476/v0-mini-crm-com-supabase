@@ -1,27 +1,36 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
-import { fazerLoginNoServidor } from './actions' // Importamos nossa Action!
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const router = useRouter()
+  const supabase = createClient()
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setError(null)
 
-    // Entregamos o trabalho sujo para o Servidor fazer!
-    const result = await fazerLoginNoServidor(email, password)
+    // O cliente faz o login e grava o cookie
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    })
 
-    // Se a função retornar algo, é porque deu erro (sucesso faz o redirect automático lá dentro)
-    if (result?.error) {
-      setError(result.error)
+    if (error) {
+      setError(error.message)
       setLoading(false)
+    } else {
+      // O padrão oficial: empurra a rota e avisa o Next.js para atualizar o cache
+      router.push('/dashboard')
+      router.refresh()
     }
   }
 
