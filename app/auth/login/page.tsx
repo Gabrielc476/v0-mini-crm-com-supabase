@@ -32,12 +32,12 @@ export default function LoginPage() {
     } else {
       console.log('[Login] Sucesso! Usuário:', data.user?.email)
 
-      // Se o seu Kanban estiver em outra rota, MUDE AQUI (ex: '/leads' ou '/')
+      // CONFIRME: A sua pasta chama 'dashboard', 'leads' ou 'kanban'?
       const destino = '/dashboard'
 
-      console.log(`[Login] Redirecionando para ${destino}...`)
-      router.push(destino)
-      router.refresh()
+      console.log(`[Login] Forçando hard redirect para ${destino}...`)
+      // A mágica acontece aqui: O window.location garante que o cookie chegue no Middleware
+      window.location.href = destino
     }
   }
 
