@@ -16,11 +16,19 @@ export default async function DashboardLayout({
 
   let userWorkspaces: any[] = []
   if (user) {
-    const { data } = await supabase
-      .from('user_workspaces')
-      .select('workspace_id, role, workspaces(id, name)')
-      .eq('user_id', user.id)
-    if (data) userWorkspaces = data
+    const { data: rpcData, error } = await supabase
+      .rpc('get_user_workspaces_info', { current_user_id: user.id })
+    
+    if (rpcData && !error) {
+       userWorkspaces = rpcData.map((row: any) => ({
+         workspace_id: row.workspace_id,
+         role: row.role,
+         workspaces: {
+           id: row.workspace_id,
+           name: row.workspace_name
+         }
+       }))
+    }
   }
 
   return (

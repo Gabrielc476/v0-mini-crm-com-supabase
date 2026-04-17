@@ -247,6 +247,7 @@ export function KanbanBoard({ initialLeads, stages, activeWorkspaceId }: KanbanB
         onUpdate={handleLeadUpdate}
         onCreate={handleLeadCreate}
         onDelete={handleLeadDelete}
+        activeWorkspaceId={activeWorkspaceId}
       />
       <SettingsModal
         isOpen={isSettingsOpen}

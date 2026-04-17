@@ -15,9 +15,10 @@ interface LeadModalProps {
   onUpdate: (lead: Lead) => void
   onCreate: (lead: Lead) => void
   onDelete: (leadId: string) => void
+  activeWorkspaceId: string
 }
 
-export function LeadModal({ lead, stages, isOpen, onClose, onUpdate, onCreate, onDelete }: LeadModalProps) {
+export function LeadModal({ lead, stages, isOpen, onClose, onUpdate, onCreate, onDelete, activeWorkspaceId }: LeadModalProps) {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -200,23 +201,11 @@ export function LeadModal({ lead, stages, isOpen, onClose, onUpdate, onCreate, o
         console.error('Erro ao atualizar:', error)
       }
     } else {
-      const { data: workspaceData, error: wsError } = await supabase
-        .from('user_workspaces')
-        .select('workspace_id')
-        .eq('user_id', user.id)
-        .single()
-
-      if (wsError || !workspaceData) {
-        console.error('Erro ao buscar workspace do usuário:', wsError)
-        setSaving(false)
-        return
-      }
-
       const { data, error } = await supabase
         .from('leads')
         .insert({
           ...payload,
-          workspace_id: workspaceData.workspace_id
+          workspace_id: activeWorkspaceId
         })
         .select()
         .single()

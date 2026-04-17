@@ -37,7 +37,7 @@ export default async function DashboardPage() {
 
   return (
     <div className="h-full">
-      <KanbanBoard initialLeads={leads || []} stages={uniqueStages} activeWorkspaceId={activeWorkspaceId} />
+      <KanbanBoard key={activeWorkspaceId} initialLeads={leads || []} stages={uniqueStages} activeWorkspaceId={activeWorkspaceId} />
     </div>
   )
 }
