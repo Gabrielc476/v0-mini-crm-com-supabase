@@ -1,9 +1,9 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Lead, GeneratedMessage } from '@/lib/types'
+import { Lead } from '@/lib/types'
 import { createClient } from '@/lib/supabase/client'
-import { X, Trash2, Mail, MessageCircle, Linkedin, Sparkles, Copy, Check, Loader2 } from 'lucide-react'
+import { X, Trash2, MessageCircle, Sparkles, Copy, Check, Loader2 } from 'lucide-react'
 
 interface LeadModalProps {
   lead: Lead | null
@@ -20,9 +20,9 @@ export function LeadModal({ lead, isOpen, onClose, onUpdate, onCreate, onDelete 
     email: '',
     phone: '',
     company: '',
-    job_title: '', // Corrigido de position para job_title
+    job_title: '',
     linkedin_url: '',
-    stage: 'Base', // Corrigido de status para stage
+    stage: 'Base',
     notes: '',
   })
 
@@ -35,6 +35,9 @@ export function LeadModal({ lead, isOpen, onClose, onUpdate, onCreate, onDelete 
   const [generatingMessage, setGeneratingMessage] = useState(false)
   const [generatedMessages, setGeneratedMessages] = useState<any[]>([])
   const [copiedId, setCopiedId] = useState<string | null>(null)
+
+  // Estado para capturar e exibir erros da IA
+  const [aiError, setAiError] = useState<string | null>(null)
 
   const supabase = createClient()
 
@@ -65,7 +68,6 @@ export function LeadModal({ lead, isOpen, onClose, onUpdate, onCreate, onDelete 
       setGeneratedMessages([])
     }
 
-    // Carrega as campanhas disponíveis sempre que o modal abre
     const loadCampaigns = async () => {
       const { data } = await supabase.from('campaigns').select('*').eq('is_active', true)
       if (data) {
@@ -76,25 +78,18 @@ export function LeadModal({ lead, isOpen, onClose, onUpdate, onCreate, onDelete 
 
     if (isOpen) {
       loadCampaigns()
+      setAiError(null)
     }
   }, [lead, isOpen])
 
   const loadMessages = async (leadId: string) => {
-    console.log(`[FRONTEND L1] Buscando mensagens no banco para o lead: ${leadId}`)
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from('generated_messages')
       .select('*')
       .eq('lead_id', leadId)
       .order('created_at', { ascending: false })
 
-    console.log('[FRONTEND L2] Resposta bruta do banco (generated_messages):', { data, error })
-
-    if (error) {
-      console.error('[FRONTEND L-ERRO] Erro ao buscar mensagens no banco:', error)
-    }
-
     if (data) {
-      console.log(`[FRONTEND L3] Atualizando tela com ${data.length} mensagens.`)
       setGeneratedMessages(data)
     }
   }
@@ -103,7 +98,7 @@ export function LeadModal({ lead, isOpen, onClose, onUpdate, onCreate, onDelete 
     e.preventDefault()
     setSaving(true)
 
-    const { data: { user }, error: userError } = await supabase.auth.getUser()
+    const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) {
       console.error('Usuário não autenticado')
@@ -111,7 +106,6 @@ export function LeadModal({ lead, isOpen, onClose, onUpdate, onCreate, onDelete 
       return
     }
 
-    // Preparar o Payload exato que o banco espera
     const payload = {
       name: formData.name,
       email: formData.email || null,
@@ -124,7 +118,6 @@ export function LeadModal({ lead, isOpen, onClose, onUpdate, onCreate, onDelete 
     }
 
     if (lead) {
-      // Update existing lead
       const { data, error } = await supabase
         .from('leads')
         .update({
@@ -141,8 +134,6 @@ export function LeadModal({ lead, isOpen, onClose, onUpdate, onCreate, onDelete 
         console.error('Erro ao atualizar:', error)
       }
     } else {
-      // Create new lead
-      // Precisamos buscar o workspace_id do usuário primeiro
       const { data: workspaceData, error: wsError } = await supabase
         .from('user_workspaces')
         .select('workspace_id')
@@ -159,16 +150,15 @@ export function LeadModal({ lead, isOpen, onClose, onUpdate, onCreate, onDelete 
         .from('leads')
         .insert({
           ...payload,
-          workspace_id: workspaceData.workspace_id // Inserindo o vínculo obrigatório
+          workspace_id: workspaceData.workspace_id
         })
         .select()
         .single()
 
-      if (error) {
-        console.error('Error creating lead:', error)
-      }
       if (!error && data) {
         onCreate(data)
+      } else {
+        console.error('Error creating lead:', error)
       }
     }
 
@@ -193,43 +183,41 @@ export function LeadModal({ lead, isOpen, onClose, onUpdate, onCreate, onDelete 
   const generateMessage = async () => {
     if (!lead || !selectedCampaign) return
 
-    console.log('\n--- 🚀 [FRONTEND IA START] Botão Gerar Mensagem clicado ---')
     setGeneratingMessage(true)
+    setAiError(null)
 
     try {
-      // 1. Checagem de sanidade da sessão antes de invocar
-      const { data: sessionData } = await supabase.auth.getSession()
-      console.log('[FRONTEND IA 1] Status da Sessão local:', sessionData.session ? 'OK (Sessão Encontrada)' : 'ALERTA (Sessão Vazia)')
-
-      console.log(`[FRONTEND IA 2] Chamando supabase.functions.invoke('generate-message')...`)
       const { data, error } = await supabase.functions.invoke('generate-message', {
-        body: {
-          lead_id: lead.id,
-          campaign_id: selectedCampaign
-        }
+        body: { lead_id: lead.id, campaign_id: selectedCampaign }
       })
 
-      console.log('[FRONTEND IA 3] Retorno bruto do invoke():', { data, error })
-
       if (error) {
-        console.error('[FRONTEND IA ERRO] O invoke falhou:', error)
-        throw error
+        console.error('[FRONTEND IA ERRO BRUTO]', error)
+
+        const serverMessage = error.context?.error || error.message || ''
+
+        if (serverMessage.includes('Acesso negado') || error.message.includes('401')) {
+          throw new Error('Sua sessão expirou. Por favor, faça login novamente para gerar mensagens.')
+        }
+        else if (serverMessage.includes('TIMEOUT') || error.message.includes('546') || error.message.includes('504')) {
+          throw new Error('A inteligência artificial do Google demorou muito para responder. Pode haver uma instabilidade temporária, tente novamente em alguns instantes.')
+        }
+        else if (serverMessage.includes('DB_ERROR') || error.message.includes('422')) {
+          throw new Error('As mensagens foram geradas, mas houve um erro interno ao salvá-las no banco de dados. Contate o suporte técnico.')
+        }
+        else {
+          throw new Error('Não foi possível gerar a mensagem devido a um erro inesperado de comunicação. Tente novamente.')
+        }
       }
 
-      console.log('[FRONTEND IA 4] Invoke concluído sem erros de rede. Analisando o payload recebido...')
-
       if (data?.success) {
-        console.log('[FRONTEND IA 5] Backend retornou success: true. Chamando loadMessages()...')
         await loadMessages(lead.id)
-      } else {
-        console.warn('[FRONTEND IA ALERTA] O backend não retornou success: true. O que ele retornou foi:', data)
       }
 
     } catch (error: any) {
-      console.error('💥 [FRONTEND IA CRASH] Erro capturado:', error)
-      alert('Falha ao gerar mensagens. Veja o console (F12).')
+      console.error('💥 [FRONTEND IA CRASH]:', error)
+      setAiError(error.message)
     } finally {
-      console.log('--- 🏁 [FRONTEND IA END] Processo finalizado ---\n')
       setGeneratingMessage(false)
     }
   }
@@ -317,7 +305,7 @@ export function LeadModal({ lead, isOpen, onClose, onUpdate, onCreate, onDelete 
                 </label>
                 <input
                   type="text"
-                  value={formData.job_title} // CORRIGIDO AQUI
+                  value={formData.job_title}
                   onChange={(e) => setFormData(prev => ({ ...prev, job_title: e.target.value }))}
                   className="w-full px-4 py-3 border-4 border-black rounded-none bg-white focus:outline-none focus:ring-4 focus:ring-accent shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
                 />
@@ -341,11 +329,10 @@ export function LeadModal({ lead, isOpen, onClose, onUpdate, onCreate, onDelete 
                   Etapa do Funil
                 </label>
                 <select
-                  value={formData.stage} // CORRIGIDO AQUI
+                  value={formData.stage}
                   onChange={(e) => setFormData(prev => ({ ...prev, stage: e.target.value }))}
                   className="w-full px-4 py-3 border-4 border-black rounded-none bg-white focus:outline-none focus:ring-4 focus:ring-accent shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
                 >
-                  {/* Fallback de opções caso o config do v0 não tenha sido atualizado */}
                   <option value="Base">Base</option>
                   <option value="Lead Mapeado">Lead Mapeado</option>
                   <option value="Tentando Contato">Tentando Contato</option>
@@ -423,6 +410,16 @@ export function LeadModal({ lead, isOpen, onClose, onUpdate, onCreate, onDelete 
                   )}
                 </button>
               </div>
+
+              {/* MENSAGEM DE ERRO NA TELA (TIMEOUT OU FALHAS) */}
+              {aiError && (
+                <div className="mb-6 p-4 bg-red-400 border-4 border-black text-black font-bold uppercase tracking-wide text-sm shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] flex items-start sm:items-center justify-between gap-4">
+                  <span>{aiError}</span>
+                  <button onClick={() => setAiError(null)} className="shrink-0 hover:bg-red-500 p-1 border-2 border-transparent hover:border-black transition-all">
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+              )}
 
               {generatedMessages.length > 0 && (
                 <div className="space-y-4">
