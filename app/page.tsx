@@ -49,7 +49,7 @@ export default async function HomePage() {
               Gere emails e mensagens personalizadas com IA
             </p>
           </div>
-          <div className="neo-card p-6 rounded-lg bg-accent text-accent-foreground">
+          <div className="neo-card p-6 rounded-lg bg-accent">
             <h3 className="text-lg font-bold mb-2">Campanhas</h3>
             <p className="text-sm text-muted-foreground">
               Organize seus leads em campanhas de prospeccao
