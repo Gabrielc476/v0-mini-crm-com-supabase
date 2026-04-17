@@ -18,27 +18,38 @@ export default function LoginPage() {
     setLoading(true)
     setError(null)
 
-    const { error } = await supabase.auth.signInWithPassword({
+    console.log('[Login] Tentando autenticar...', email)
+
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     })
 
     if (error) {
+      console.error('[Login] Erro do Supabase:', error.message)
       setError(error.message)
       setLoading(false)
     } else {
-      router.push('/dashboard')
+      console.log('[Login] Sucesso! Usuário:', data.user?.email)
+
+      // Se o seu Kanban estiver em outra rota, MUDE AQUI (ex: '/leads' ou '/')
+      const destino = '/dashboard'
+
+      console.log(`[Login] Redirecionando para ${destino}...`)
+      router.push(destino)
       router.refresh()
     }
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center p-4">
+    <main className="min-h-screen flex items-center justify-center p-4 bg-yellow-400">
       <div className="w-full max-w-md">
-        <div className="neo-card p-8 rounded-lg">
-          <div className="mb-8 text-center">
-            <h1 className="text-3xl font-bold mb-2">Mini CRM</h1>
-            <p className="text-muted-foreground">Entre na sua conta para continuar</p>
+        <div className="bg-white border-4 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] p-8 rounded-none">
+          <div className="mb-8 text-center border-b-4 border-black pb-6">
+            <h1 className="text-4xl font-black uppercase tracking-tight mb-2">Mini CRM</h1>
+            <p className="text-gray-600 font-bold uppercase tracking-wide text-sm">
+              SDR Intelligence Hub
+            </p>
           </div>
 
           <form onSubmit={handleLogin} className="space-y-6">
@@ -51,7 +62,7 @@ export default function LoginPage() {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-3 neo-border-sm rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-accent"
+                className="w-full px-4 py-3 border-4 border-black rounded-none bg-white focus:outline-none focus:ring-4 focus:ring-purple-400 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all"
                 placeholder="seu@email.com"
                 required
               />
@@ -66,14 +77,14 @@ export default function LoginPage() {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-3 neo-border-sm rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-accent"
+                className="w-full px-4 py-3 border-4 border-black rounded-none bg-white focus:outline-none focus:ring-4 focus:ring-purple-400 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all"
                 placeholder="••••••••"
                 required
               />
             </div>
 
             {error && (
-              <div className="p-3 bg-destructive/10 border-2 border-destructive rounded-lg text-destructive text-sm">
+              <div className="p-4 bg-red-400 border-4 border-black text-black font-bold uppercase tracking-wide text-sm shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
                 {error}
               </div>
             )}
@@ -81,16 +92,16 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 px-4 bg-primary text-primary-foreground font-bold uppercase tracking-wide neo-button rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full py-4 px-4 mt-4 bg-purple-400 text-black border-4 border-black font-black uppercase tracking-widest shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? 'Entrando...' : 'Entrar'}
+              {loading ? 'Entrando...' : 'Entrar na Base'}
             </button>
           </form>
 
-          <div className="mt-6 text-center">
-            <p className="text-muted-foreground">
-              Ainda nao tem conta?{' '}
-              <Link href="/auth/signup" className="text-accent font-bold hover:underline">
+          <div className="mt-8 text-center pt-6 border-t-4 border-black">
+            <p className="text-gray-600 font-bold text-sm">
+              Ainda não tem conta?{' '}
+              <Link href="/auth/signup" className="text-purple-600 font-black uppercase hover:underline ml-1">
                 Criar conta
               </Link>
             </p>
