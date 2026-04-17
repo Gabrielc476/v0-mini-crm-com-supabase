@@ -15,7 +15,7 @@ export interface GenerationTask {
   error?: string
   createdAt: Date
 }
-
+//integração com IA
 interface AIGenerationContextType {
   tasks: GenerationTask[]
   pendingCount: number
