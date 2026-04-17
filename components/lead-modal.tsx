@@ -203,8 +203,7 @@ export function LeadModal({ lead, stages, isOpen, onClose, onUpdate, onCreate, o
     } else {
       const payloadFinal = {
         ...payload,
-        workspace_id: activeWorkspaceId,
-        user_id: user.id
+        workspace_id: activeWorkspaceId
       }
       
       console.log("[DEBUG] Payload final tentando inserir Lead:", payloadFinal)
