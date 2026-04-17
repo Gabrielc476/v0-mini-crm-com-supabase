@@ -1,43 +1,27 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
+import { fazerLoginNoServidor } from './actions' // Importamos nossa Action!
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
-  const router = useRouter()
-  const supabase = createClient()
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setError(null)
 
-    console.log('[Login] Tentando autenticar...', email)
+    // Entregamos o trabalho sujo para o Servidor fazer!
+    const result = await fazerLoginNoServidor(email, password)
 
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    })
-
-    if (error) {
-      console.error('[Login] Erro do Supabase:', error.message)
-      setError(error.message)
+    // Se a função retornar algo, é porque deu erro (sucesso faz o redirect automático lá dentro)
+    if (result?.error) {
+      setError(result.error)
       setLoading(false)
-    } else {
-      console.log('[Login] Sucesso! Usuário:', data.user?.email)
-
-      // CONFIRME: A sua pasta chama 'dashboard', 'leads' ou 'kanban'?
-      const destino = '/dashboard'
-
-      console.log(`[Login] Forçando hard redirect para ${destino}...`)
-      // A mágica acontece aqui: O window.location garante que o cookie chegue no Middleware
-      window.location.href = destino
     }
   }
 
