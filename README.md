@@ -1,5 +1,8 @@
 # Mini CRM Neo-Brutalista 🚀
 
+> [!IMPORTANT]
+> **Assista à demonstração em vídeo:** [Link do projeto no Google Drive](https://drive.google.com/file/d/1LuRrtV-npRczYvbUBOFPZ3euOYd0I-Xq/view?usp=sharing)
+
 Este repositório comporta a submissão para o desafio de construção de um CRM Inteligente e escalável, fundindo capacidades clássicas de vendas B2B com a nova onda de integrações via Inteligência Artificial numa arquitetura robusta Serverless. A aplicação foge do tradicional padrão corporativo visual aborrecido, apostando fortemente na estética **Neo-Brutalista** de alta performance e legibilidade agressiva.
 
 ## 📌 Descrição do Projeto
