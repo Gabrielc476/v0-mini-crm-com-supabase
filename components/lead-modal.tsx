@@ -80,13 +80,21 @@ export function LeadModal({ lead, isOpen, onClose, onUpdate, onCreate, onDelete 
   }, [lead, isOpen])
 
   const loadMessages = async (leadId: string) => {
-    const { data } = await supabase
+    console.log(`[FRONTEND L1] Buscando mensagens no banco para o lead: ${leadId}`)
+    const { data, error } = await supabase
       .from('generated_messages')
       .select('*')
       .eq('lead_id', leadId)
       .order('created_at', { ascending: false })
 
+    console.log('[FRONTEND L2] Resposta bruta do banco (generated_messages):', { data, error })
+
+    if (error) {
+      console.error('[FRONTEND L-ERRO] Erro ao buscar mensagens no banco:', error)
+    }
+
     if (data) {
+      console.log(`[FRONTEND L3] Atualizando tela com ${data.length} mensagens.`)
       setGeneratedMessages(data)
     }
   }
@@ -185,10 +193,15 @@ export function LeadModal({ lead, isOpen, onClose, onUpdate, onCreate, onDelete 
   const generateMessage = async () => {
     if (!lead || !selectedCampaign) return
 
+    console.log('\n--- 🚀 [FRONTEND IA START] Botão Gerar Mensagem clicado ---')
     setGeneratingMessage(true)
 
     try {
-      // Chama a NOSSA Edge Function real no Supabase
+      // 1. Checagem de sanidade da sessão antes de invocar
+      const { data: sessionData } = await supabase.auth.getSession()
+      console.log('[FRONTEND IA 1] Status da Sessão local:', sessionData.session ? 'OK (Sessão Encontrada)' : 'ALERTA (Sessão Vazia)')
+
+      console.log(`[FRONTEND IA 2] Chamando supabase.functions.invoke('generate-message')...`)
       const { data, error } = await supabase.functions.invoke('generate-message', {
         body: {
           lead_id: lead.id,
@@ -196,19 +209,29 @@ export function LeadModal({ lead, isOpen, onClose, onUpdate, onCreate, onDelete 
         }
       })
 
-      if (error) throw error
+      console.log('[FRONTEND IA 3] Retorno bruto do invoke():', { data, error })
+
+      if (error) {
+        console.error('[FRONTEND IA ERRO] O invoke falhou:', error)
+        throw error
+      }
+
+      console.log('[FRONTEND IA 4] Invoke concluído sem erros de rede. Analisando o payload recebido...')
 
       if (data?.success) {
-        // As mensagens já foram salvas no banco pela Edge Function!
-        // Só precisamos recarregar a lista para exibir na tela.
+        console.log('[FRONTEND IA 5] Backend retornou success: true. Chamando loadMessages()...')
         await loadMessages(lead.id)
+      } else {
+        console.warn('[FRONTEND IA ALERTA] O backend não retornou success: true. O que ele retornou foi:', data)
       }
-    } catch (error) {
-      console.error('Erro ao gerar mensagem na IA:', error)
-      alert('Falha ao gerar mensagens. Verifique os logs da Edge Function.')
-    }
 
-    setGeneratingMessage(false)
+    } catch (error: any) {
+      console.error('💥 [FRONTEND IA CRASH] Erro capturado:', error)
+      alert('Falha ao gerar mensagens. Veja o console (F12).')
+    } finally {
+      console.log('--- 🏁 [FRONTEND IA END] Processo finalizado ---\n')
+      setGeneratingMessage(false)
+    }
   }
 
   const copyToClipboard = async (message: any) => {
