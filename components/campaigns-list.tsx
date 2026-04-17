@@ -1,16 +1,17 @@
 'use client'
 
 import { useState } from 'react'
-import { Campaign } from '@/lib/types'
+import { Campaign, FunnelStage } from '@/lib/types'
 import { CampaignModal } from './campaign-modal'
 import { Plus, Calendar, Megaphone } from 'lucide-react'
 
 // Removemos o availableLeads daqui
 interface CampaignsListProps {
   initialCampaigns: Campaign[]
+  stages: FunnelStage[]
 }
 
-export function CampaignsList({ initialCampaigns }: CampaignsListProps) {
+export function CampaignsList({ initialCampaigns, stages }: CampaignsListProps) {
   const [campaigns, setCampaigns] = useState<Campaign[]>(initialCampaigns)
   const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -109,6 +110,7 @@ export function CampaignsList({ initialCampaigns }: CampaignsListProps) {
       {/* Removemos o availableLeads da chamada do Modal */}
       <CampaignModal
         campaign={selectedCampaign}
+        stages={stages}
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onUpdate={handleCampaignUpdate}

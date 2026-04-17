@@ -1,12 +1,13 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Campaign, LeadStage } from '@/lib/types'
+import { Campaign, LeadStage, FunnelStage } from '@/lib/types'
 import { createClient } from '@/lib/supabase/client'
 import { X, Trash2 } from 'lucide-react'
 
 interface CampaignModalProps {
   campaign: Campaign | null
+  stages: FunnelStage[]
   isOpen: boolean
   onClose: () => void
   onUpdate: (campaign: Campaign) => void
@@ -16,6 +17,7 @@ interface CampaignModalProps {
 
 export function CampaignModal({
   campaign,
+  stages,
   isOpen,
   onClose,
   onUpdate,
@@ -210,12 +212,9 @@ export function CampaignModal({
                   className="w-full px-4 py-3 border-4 border-black rounded-none bg-white focus:outline-none focus:ring-4 focus:ring-accent shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
                 >
                   <option value="">Nenhum gatilho</option>
-                  <option value="Base">Base</option>
-                  <option value="Lead Mapeado">Lead Mapeado</option>
-                  <option value="Tentando Contato">Tentando Contato</option>
-                  <option value="Conexão Iniciada">Conexão Iniciada</option>
-                  <option value="Qualificado">Qualificado</option>
-                  <option value="Reunião Agendada">Reunião Agendada</option>
+                  {stages && stages.map(s => (
+                    <option key={s.id} value={s.name}>{s.name}</option>
+                  ))}
                 </select>
               </div>
 

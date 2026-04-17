@@ -46,11 +46,11 @@
   --radius: 0.5rem;
   
   /* Sidebar */
-  --sidebar: oklch(0.92 0.18 95);
-  --sidebar-foreground: oklch(0.15 0 0);
-  --sidebar-primary: oklch(0.15 0 0);
-  --sidebar-primary-foreground: oklch(1 0 0);
-  --sidebar-accent: oklch(0.88 0.12 10);
+  --sidebar: #ffffff; /* Ultra clean white backdrop */
+  --sidebar-foreground: #000000;
+  --sidebar-primary: #d946ef; /* Bold Fuchsia for active state */
+  --sidebar-primary-foreground: #ffffff; 
+  --sidebar-accent: #facc15; /* Punchy Yellow for hover */
   --sidebar-accent-foreground: oklch(0.15 0 0);
   --sidebar-border: oklch(0.15 0 0);
   --sidebar-ring: oklch(0.15 0 0);

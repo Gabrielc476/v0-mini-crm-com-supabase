@@ -41,7 +41,7 @@ export function MessageGenerationModal({
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-foreground/30 backdrop-blur-sm" onClick={status !== 'generating' ? onClose : undefined} />
+      <div className="absolute inset-0 bg-foreground/30 backdrop-blur-sm" onClick={onClose} />
 
       <div className="relative neo-card rounded-lg w-full max-w-lg max-h-[80vh] overflow-hidden flex flex-col bg-background">
         {/* Header */}
@@ -55,14 +55,12 @@ export function MessageGenerationModal({
               <p className="text-xs font-medium opacity-80">{leadName} - {campaignName}</p>
             </div>
           </div>
-          {status !== 'generating' && (
-            <button
-              onClick={onClose}
-              className="p-2 hover:bg-black/10 rounded-lg transition-colors border-2 border-transparent hover:border-black"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          )}
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-black/10 rounded-lg transition-colors border-2 border-transparent hover:border-black"
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
 
         {/* Content */}
@@ -89,6 +87,15 @@ export function MessageGenerationModal({
               <div className="w-full max-w-xs mt-6 h-4 border-3 border-black bg-gray-100 overflow-hidden">
                 <div className="h-full bg-purple-400 animate-loading-bar" />
               </div>
+
+              <div className="mt-8 w-full">
+                <button
+                  onClick={onClose}
+                  className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-white text-black border-4 border-black font-bold uppercase tracking-wide shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-all"
+                >
+                  Ocultar e Executar em Background
+                </button>
+              </div>
             </div>
           )}
 
@@ -109,16 +116,24 @@ export function MessageGenerationModal({
                 <p className="text-sm whitespace-pre-wrap font-medium leading-relaxed">{message}</p>
               </div>
 
-              <button
-                onClick={copyToClipboard}
-                className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-yellow-400 text-black border-4 border-black font-bold uppercase tracking-wide shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-all"
-              >
-                {copied ? (
-                  <><Check className="w-5 h-5" /> Copiado!</>
-                ) : (
-                  <><Copy className="w-5 h-5" /> Copiar Mensagem</>
-                )}
-              </button>
+              <div className="flex flex-col gap-3">
+                <button
+                  onClick={copyToClipboard}
+                  className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-yellow-400 text-black border-4 border-black font-bold uppercase tracking-wide shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-all"
+                >
+                  {copied ? (
+                    <><Check className="w-5 h-5" /> Copiado!</>
+                  ) : (
+                    <><Copy className="w-5 h-5" /> Copiar Mensagem</>
+                  )}
+                </button>
+                <button
+                  onClick={onClose}
+                  className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-white text-black border-4 border-black font-bold uppercase tracking-wide shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-all"
+                >
+                  Fechar
+                </button>
+              </div>
             </div>
           )}
 

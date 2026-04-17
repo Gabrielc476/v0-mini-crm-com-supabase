@@ -1,12 +1,15 @@
 // 1. Tipagem das Etapas do Funil (antigo LeadStatus)
-export type LeadStage =
-  | 'Base'
-  | 'Lead Mapeado'
-  | 'Tentando Contato'
-  | 'Conexão Iniciada'
-  | 'Qualificado'
-  | 'Reunião Agendada'
-  | 'Desqualificado'
+// Flexibilizado para aceitar nomes dinâmicos vindos do banco de dados
+export type LeadStage = string
+
+export interface FunnelStage {
+  id: string
+  workspace_id: string
+  name: string
+  color: string
+  position: number
+  required_fields: string[] | null
+}
 
 export interface Lead {
   id: string
