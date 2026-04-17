@@ -14,28 +14,28 @@ interface LeadModalProps {
   onDelete: (leadId: string) => void
 }
 
-const MESSAGE_TYPES: { type: MessageType; label: string; icon: typeof Mail }[] = [
-  { type: 'email', label: 'Email', icon: Mail },
-  { type: 'linkedin', label: 'LinkedIn', icon: Linkedin },
-  { type: 'whatsapp', label: 'WhatsApp', icon: MessageCircle },
-]
-
 export function LeadModal({ lead, isOpen, onClose, onUpdate, onCreate, onDelete }: LeadModalProps) {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     phone: '',
     company: '',
-    position: '',
+    job_title: '', // Corrigido de position para job_title
     linkedin_url: '',
-    status: 'novo' as LeadStatus,
+    stage: 'Base', // Corrigido de status para stage
     notes: '',
   })
+
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
-  const [generatingMessage, setGeneratingMessage] = useState<MessageType | null>(null)
-  const [generatedMessages, setGeneratedMessages] = useState<GeneratedMessage[]>([])
+
+  // Estados para a IA e Campanhas
+  const [campaigns, setCampaigns] = useState<any[]>([])
+  const [selectedCampaign, setSelectedCampaign] = useState<string>('')
+  const [generatingMessage, setGeneratingMessage] = useState(false)
+  const [generatedMessages, setGeneratedMessages] = useState<any[]>([])
   const [copiedId, setCopiedId] = useState<string | null>(null)
+
   const supabase = createClient()
 
   useEffect(() => {
@@ -45,9 +45,9 @@ export function LeadModal({ lead, isOpen, onClose, onUpdate, onCreate, onDelete 
         email: lead.email || '',
         phone: lead.phone || '',
         company: lead.company || '',
-        position: lead.position || '',
+        job_title: lead.job_title || '',
         linkedin_url: lead.linkedin_url || '',
-        status: lead.status,
+        stage: lead.stage || 'Base',
         notes: lead.notes || '',
       })
       loadMessages(lead.id)
@@ -57,14 +57,27 @@ export function LeadModal({ lead, isOpen, onClose, onUpdate, onCreate, onDelete 
         email: '',
         phone: '',
         company: '',
-        position: '',
+        job_title: '',
         linkedin_url: '',
-        status: 'novo',
+        stage: 'Base',
         notes: '',
       })
       setGeneratedMessages([])
     }
-  }, [lead])
+
+    // Carrega as campanhas disponíveis sempre que o modal abre
+    const loadCampaigns = async () => {
+      const { data } = await supabase.from('campaigns').select('*').eq('is_active', true)
+      if (data) {
+        setCampaigns(data)
+        if (data.length > 0) setSelectedCampaign(data[0].id)
+      }
+    }
+
+    if (isOpen) {
+      loadCampaigns()
+    }
+  }, [lead, isOpen])
 
   const loadMessages = async (leadId: string) => {
     const { data } = await supabase
@@ -80,62 +93,71 @@ export function LeadModal({ lead, isOpen, onClose, onUpdate, onCreate, onDelete 
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    console.log('[v0] handleSubmit called')
     setSaving(true)
 
     const { data: { user }, error: userError } = await supabase.auth.getUser()
-    console.log('[v0] getUser result:', { user: user?.id, userError })
-    
+
     if (!user) {
-      console.log('[v0] No user found, aborting')
+      console.error('Usuário não autenticado')
       setSaving(false)
       return
     }
 
+    // Preparar o Payload exato que o banco espera
+    const payload = {
+      name: formData.name,
+      email: formData.email || null,
+      phone: formData.phone || null,
+      company: formData.company || null,
+      job_title: formData.job_title || null,
+      linkedin_url: formData.linkedin_url || null,
+      stage: formData.stage,
+      notes: formData.notes || null,
+    }
+
     if (lead) {
       // Update existing lead
-      console.log('[v0] Updating lead:', lead.id)
       const { data, error } = await supabase
         .from('leads')
         .update({
-          ...formData,
-          email: formData.email || null,
-          phone: formData.phone || null,
-          company: formData.company || null,
-          position: formData.position || null,
-          linkedin_url: formData.linkedin_url || null,
-          notes: formData.notes || null,
+          ...payload,
           updated_at: new Date().toISOString(),
         })
         .eq('id', lead.id)
         .select()
         .single()
 
-      console.log('[v0] Update result:', { data, error })
       if (!error && data) {
         onUpdate(data)
+      } else {
+        console.error('Erro ao atualizar:', error)
       }
     } else {
       // Create new lead
-      console.log('[v0] Creating new lead with data:', { ...formData, user_id: user.id })
+      // Precisamos buscar o workspace_id do usuário primeiro
+      const { data: workspaceData, error: wsError } = await supabase
+        .from('user_workspaces')
+        .select('workspace_id')
+        .eq('user_id', user.id)
+        .single()
+
+      if (wsError || !workspaceData) {
+        console.error('Erro ao buscar workspace do usuário:', wsError)
+        setSaving(false)
+        return
+      }
+
       const { data, error } = await supabase
         .from('leads')
         .insert({
-          ...formData,
-          user_id: user.id,
-          email: formData.email || null,
-          phone: formData.phone || null,
-          company: formData.company || null,
-          position: formData.position || null,
-          linkedin_url: formData.linkedin_url || null,
-          notes: formData.notes || null,
+          ...payload,
+          workspace_id: workspaceData.workspace_id // Inserindo o vínculo obrigatório
         })
         .select()
         .single()
 
-      console.log('[v0] Insert result:', { data, error })
       if (error) {
-        console.error('[v0] Error creating lead:', error)
+        console.error('Error creating lead:', error)
       }
       if (!error && data) {
         onCreate(data)
@@ -147,7 +169,7 @@ export function LeadModal({ lead, isOpen, onClose, onUpdate, onCreate, onDelete 
 
   const handleDelete = async () => {
     if (!lead || !confirm('Tem certeza que deseja excluir este lead?')) return
-    
+
     setDeleting(true)
     const { error } = await supabase
       .from('leads')
@@ -160,36 +182,36 @@ export function LeadModal({ lead, isOpen, onClose, onUpdate, onCreate, onDelete 
     setDeleting(false)
   }
 
-  const generateMessage = async (messageType: MessageType) => {
-    if (!lead) return
+  const generateMessage = async () => {
+    if (!lead || !selectedCampaign) return
 
-    setGeneratingMessage(messageType)
+    setGeneratingMessage(true)
 
     try {
-      const response = await fetch('/api/generate-message', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          leadId: lead.id,
-          leadName: lead.name,
-          leadCompany: lead.company,
-          leadPosition: lead.position,
-          messageType,
-        }),
+      // Chama a NOSSA Edge Function real no Supabase
+      const { data, error } = await supabase.functions.invoke('generate-message', {
+        body: {
+          lead_id: lead.id,
+          campaign_id: selectedCampaign
+        }
       })
 
-      if (response.ok) {
-        const newMessage = await response.json()
-        setGeneratedMessages(prev => [newMessage, ...prev])
+      if (error) throw error
+
+      if (data?.success) {
+        // As mensagens já foram salvas no banco pela Edge Function!
+        // Só precisamos recarregar a lista para exibir na tela.
+        await loadMessages(lead.id)
       }
     } catch (error) {
-      console.error('Error generating message:', error)
+      console.error('Erro ao gerar mensagem na IA:', error)
+      alert('Falha ao gerar mensagens. Verifique os logs da Edge Function.')
     }
 
-    setGeneratingMessage(null)
+    setGeneratingMessage(false)
   }
 
-  const copyToClipboard = async (message: GeneratedMessage) => {
+  const copyToClipboard = async (message: any) => {
     await navigator.clipboard.writeText(message.content)
     setCopiedId(message.id)
     setTimeout(() => setCopiedId(null), 2000)
@@ -200,15 +222,15 @@ export function LeadModal({ lead, isOpen, onClose, onUpdate, onCreate, onDelete 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-foreground/20" onClick={onClose} />
-      
-      <div className="relative neo-card rounded-lg w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
-        <div className="flex items-center justify-between p-6 border-b-3 border-foreground">
+
+      <div className="relative neo-card rounded-lg w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col bg-background">
+        <div className="flex items-center justify-between p-6 border-b-4 border-black">
           <h2 className="text-xl font-bold">
             {lead ? 'Detalhes do Lead' : 'Novo Lead'}
           </h2>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-muted rounded-lg transition-colors"
+            className="p-2 hover:bg-muted rounded-lg transition-colors border-2 border-transparent hover:border-black"
           >
             <X className="w-5 h-5" />
           </button>
@@ -225,7 +247,7 @@ export function LeadModal({ lead, isOpen, onClose, onUpdate, onCreate, onDelete 
                   type="text"
                   value={formData.name}
                   onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                  className="w-full px-4 py-3 neo-border-sm rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-accent"
+                  className="w-full px-4 py-3 border-4 border-black rounded-none bg-white focus:outline-none focus:ring-4 focus:ring-accent shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
                   required
                 />
               </div>
@@ -238,7 +260,7 @@ export function LeadModal({ lead, isOpen, onClose, onUpdate, onCreate, onDelete 
                   type="email"
                   value={formData.email}
                   onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-                  className="w-full px-4 py-3 neo-border-sm rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-accent"
+                  className="w-full px-4 py-3 border-4 border-black rounded-none bg-white focus:outline-none focus:ring-4 focus:ring-accent shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
                 />
               </div>
 
@@ -250,7 +272,7 @@ export function LeadModal({ lead, isOpen, onClose, onUpdate, onCreate, onDelete 
                   type="tel"
                   value={formData.phone}
                   onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
-                  className="w-full px-4 py-3 neo-border-sm rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-accent"
+                  className="w-full px-4 py-3 border-4 border-black rounded-none bg-white focus:outline-none focus:ring-4 focus:ring-accent shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
                 />
               </div>
 
@@ -262,7 +284,7 @@ export function LeadModal({ lead, isOpen, onClose, onUpdate, onCreate, onDelete 
                   type="text"
                   value={formData.company}
                   onChange={(e) => setFormData(prev => ({ ...prev, company: e.target.value }))}
-                  className="w-full px-4 py-3 neo-border-sm rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-accent"
+                  className="w-full px-4 py-3 border-4 border-black rounded-none bg-white focus:outline-none focus:ring-4 focus:ring-accent shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
                 />
               </div>
 
@@ -272,9 +294,9 @@ export function LeadModal({ lead, isOpen, onClose, onUpdate, onCreate, onDelete 
                 </label>
                 <input
                   type="text"
-                  value={formData.position}
-                  onChange={(e) => setFormData(prev => ({ ...prev, position: e.target.value }))}
-                  className="w-full px-4 py-3 neo-border-sm rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-accent"
+                  value={formData.job_title} // CORRIGIDO AQUI
+                  onChange={(e) => setFormData(prev => ({ ...prev, job_title: e.target.value }))}
+                  className="w-full px-4 py-3 border-4 border-black rounded-none bg-white focus:outline-none focus:ring-4 focus:ring-accent shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
                 />
               </div>
 
@@ -286,25 +308,28 @@ export function LeadModal({ lead, isOpen, onClose, onUpdate, onCreate, onDelete 
                   type="url"
                   value={formData.linkedin_url}
                   onChange={(e) => setFormData(prev => ({ ...prev, linkedin_url: e.target.value }))}
-                  className="w-full px-4 py-3 neo-border-sm rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-accent"
+                  className="w-full px-4 py-3 border-4 border-black rounded-none bg-white focus:outline-none focus:ring-4 focus:ring-accent shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
                   placeholder="https://linkedin.com/in/..."
                 />
               </div>
 
               <div className="col-span-2 space-y-2">
                 <label className="block text-sm font-bold uppercase tracking-wide">
-                  Status
+                  Etapa do Funil
                 </label>
                 <select
-                  value={formData.status}
-                  onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value as LeadStatus }))}
-                  className="w-full px-4 py-3 neo-border-sm rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-accent"
+                  value={formData.stage} // CORRIGIDO AQUI
+                  onChange={(e) => setFormData(prev => ({ ...prev, stage: e.target.value }))}
+                  className="w-full px-4 py-3 border-4 border-black rounded-none bg-white focus:outline-none focus:ring-4 focus:ring-accent shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
                 >
-                  {Object.entries(LEAD_STATUS_CONFIG).map(([status, config]) => (
-                    <option key={status} value={status}>
-                      {config.label}
-                    </option>
-                  ))}
+                  {/* Fallback de opções caso o config do v0 não tenha sido atualizado */}
+                  <option value="Base">Base</option>
+                  <option value="Lead Mapeado">Lead Mapeado</option>
+                  <option value="Tentando Contato">Tentando Contato</option>
+                  <option value="Conexão Iniciada">Conexão Iniciada</option>
+                  <option value="Desqualificado">Desqualificado</option>
+                  <option value="Qualificado">Qualificado</option>
+                  <option value="Reunião Agendada">Reunião Agendada</option>
                 </select>
               </div>
 
@@ -316,7 +341,7 @@ export function LeadModal({ lead, isOpen, onClose, onUpdate, onCreate, onDelete 
                   value={formData.notes}
                   onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
                   rows={3}
-                  className="w-full px-4 py-3 neo-border-sm rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-accent resize-none"
+                  className="w-full px-4 py-3 border-4 border-black rounded-none bg-white focus:outline-none focus:ring-4 focus:ring-accent resize-none shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
                 />
               </div>
             </div>
@@ -325,9 +350,9 @@ export function LeadModal({ lead, isOpen, onClose, onUpdate, onCreate, onDelete 
               <button
                 type="submit"
                 disabled={saving}
-                className="flex-1 py-3 px-4 bg-primary text-primary-foreground font-bold uppercase tracking-wide neo-button rounded-lg disabled:opacity-50"
+                className="flex-1 py-3 px-4 bg-yellow-400 text-black border-4 border-black font-bold uppercase tracking-wide shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-all disabled:opacity-50"
               >
-                {saving ? 'Salvando...' : lead ? 'Salvar' : 'Criar Lead'}
+                {saving ? 'Salvando...' : lead ? 'Salvar Alterações' : 'Criar Lead'}
               </button>
 
               {lead && (
@@ -335,7 +360,7 @@ export function LeadModal({ lead, isOpen, onClose, onUpdate, onCreate, onDelete 
                   type="button"
                   onClick={handleDelete}
                   disabled={deleting}
-                  className="py-3 px-4 bg-destructive text-destructive-foreground font-bold neo-button rounded-lg disabled:opacity-50"
+                  className="py-3 px-4 bg-red-400 text-black border-4 border-black font-bold shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-all disabled:opacity-50"
                 >
                   <Trash2 className="w-5 h-5" />
                 </button>
@@ -343,62 +368,65 @@ export function LeadModal({ lead, isOpen, onClose, onUpdate, onCreate, onDelete 
             </div>
           </form>
 
+          {/* SESSÃO DE INTELIGÊNCIA ARTIFICIAL */}
           {lead && (
-            <div className="mt-8 pt-6 border-t-3 border-foreground">
-              <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
-                <Sparkles className="w-5 h-5" />
+            <div className="mt-8 pt-6 border-t-4 border-black">
+              <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
+                <Sparkles className="w-6 h-6 text-purple-600" />
                 Gerar Mensagem com IA
               </h3>
 
-              <div className="flex gap-3 mb-6">
-                {MESSAGE_TYPES.map(({ type, label, icon: Icon }) => (
-                  <button
-                    key={type}
-                    onClick={() => generateMessage(type)}
-                    disabled={generatingMessage !== null}
-                    className="flex items-center gap-2 px-4 py-2 bg-accent text-accent-foreground font-bold neo-button rounded-lg disabled:opacity-50"
-                  >
-                    {generatingMessage === type ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Icon className="w-4 h-4" />
-                    )}
-                    {label}
-                  </button>
-                ))}
+              <div className="flex flex-col sm:flex-row gap-3 mb-6">
+                <select
+                  value={selectedCampaign}
+                  onChange={(e) => setSelectedCampaign(e.target.value)}
+                  className="flex-1 px-4 py-3 border-4 border-black rounded-none bg-white font-bold focus:outline-none shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
+                >
+                  <option value="" disabled>1. Selecione uma Campanha...</option>
+                  {campaigns.map(c => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+
+                <button
+                  onClick={generateMessage}
+                  disabled={generatingMessage || !selectedCampaign}
+                  className="flex items-center justify-center gap-2 px-6 py-3 bg-purple-400 text-black border-4 border-black font-bold uppercase shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {generatingMessage ? (
+                    <><Loader2 className="w-5 h-5 animate-spin" /> Pensando...</>
+                  ) : (
+                    <><Sparkles className="w-5 h-5" /> Gerar</>
+                  )}
+                </button>
               </div>
 
               {generatedMessages.length > 0 && (
-                <div className="space-y-3">
-                  <h4 className="text-sm font-bold uppercase tracking-wide text-muted-foreground">
-                    Mensagens Geradas
+                <div className="space-y-4">
+                  <h4 className="text-sm font-bold uppercase tracking-wide text-gray-500">
+                    Histórico de Mensagens
                   </h4>
-                  {generatedMessages.map(message => {
-                    const msgConfig = MESSAGE_TYPES.find(t => t.type === message.message_type)
-                    const Icon = msgConfig?.icon || Mail
-
-                    return (
-                      <div key={message.id} className="neo-card p-4 rounded-lg">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide">
-                            <Icon className="w-4 h-4" />
-                            {msgConfig?.label}
-                          </span>
-                          <button
-                            onClick={() => copyToClipboard(message)}
-                            className="p-2 hover:bg-muted rounded-lg transition-colors"
-                          >
-                            {copiedId === message.id ? (
-                              <Check className="w-4 h-4 text-chart-4" />
-                            ) : (
-                              <Copy className="w-4 h-4" />
-                            )}
-                          </button>
-                        </div>
-                        <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                  {generatedMessages.map(message => (
+                    <div key={message.id} className="p-4 bg-blue-50 border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                      <div className="flex items-center justify-between mb-3 border-b-2 border-black/10 pb-2">
+                        <span className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide">
+                          <MessageCircle className="w-4 h-4" />
+                          Sugestão IA
+                        </span>
+                        <button
+                          onClick={() => copyToClipboard(message)}
+                          className="flex items-center gap-2 px-3 py-1 bg-white border-2 border-black font-bold text-xs hover:bg-gray-100 transition-colors"
+                        >
+                          {copiedId === message.id ? (
+                            <><Check className="w-3 h-3 text-green-600" /> Copiado</>
+                          ) : (
+                            <><Copy className="w-3 h-3" /> Copiar</>
+                          )}
+                        </button>
                       </div>
-                    )
-                  })}
+                      <p className="text-sm whitespace-pre-wrap font-medium">{message.content}</p>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>

@@ -1,62 +1,61 @@
-export type LeadStatus = 'novo' | 'contactado' | 'qualificado' | 'proposta' | 'ganho' | 'perdido'
+// 1. Tipagem das Etapas do Funil (antigo LeadStatus)
+export type LeadStage =
+  | 'Base'
+  | 'Lead Mapeado'
+  | 'Tentando Contato'
+  | 'Conexão Iniciada'
+  | 'Qualificado'
+  | 'Reunião Agendada'
+  | 'Desqualificado'
 
 export interface Lead {
   id: string
-  user_id: string
+  workspace_id: string // Alterado para suportar Multi-tenancy
   name: string
   email: string | null
   phone: string | null
   company: string | null
-  position: string | null
-  linkedin_url: string | null
-  status: LeadStatus
+  job_title: string | null // Antigo position
+  source: string | null
+  linkedin_url: string | null // Mantido conforme seu pedido
+  stage: LeadStage // Antigo status
   notes: string | null
+  custom_fields?: Record<string, any> // Suporte ao JSONB de campos personalizados
   created_at: string
   updated_at: string
 }
 
-export type CampaignStatus = 'rascunho' | 'ativa' | 'pausada' | 'finalizada'
-
+// 2. Tipagem de Campanhas
 export interface Campaign {
   id: string
-  user_id: string
+  workspace_id: string
   name: string
-  description: string | null
-  status: CampaignStatus
+  context_description: string | null
+  prompt_instructions: string | null
+  trigger_stage: LeadStage | null
+  is_active: boolean // Substitui o enum CampaignStatus antigo
   created_at: string
-  updated_at: string
 }
 
-export interface CampaignLead {
-  id: string
-  campaign_id: string
-  lead_id: string
-  added_at: string
-}
-
-export type MessageType = 'email' | 'linkedin' | 'whatsapp'
+// 3. Tipagem das Mensagens Geradas pela IA
+export type MessageStatus = 'sugerida' | 'enviada' | 'descartada'
 
 export interface GeneratedMessage {
   id: string
-  user_id: string
   lead_id: string
-  message_type: MessageType
+  campaign_id: string // Vinculado diretamente à campanha em vez de user_id
   content: string
+  status: MessageStatus
   created_at: string
 }
 
-export const LEAD_STATUS_CONFIG: Record<LeadStatus, { label: string; color: string; bgColor: string }> = {
-  novo: { label: 'Novo', color: 'text-foreground', bgColor: 'bg-primary' },
-  contactado: { label: 'Contactado', color: 'text-foreground', bgColor: 'bg-secondary' },
-  qualificado: { label: 'Qualificado', color: 'text-accent-foreground', bgColor: 'bg-accent' },
-  proposta: { label: 'Proposta', color: 'text-foreground', bgColor: 'bg-chart-4' },
-  ganho: { label: 'Ganho', color: 'text-foreground', bgColor: 'bg-chart-4' },
-  perdido: { label: 'Perdido', color: 'text-destructive-foreground', bgColor: 'bg-destructive' },
-}
-
-export const CAMPAIGN_STATUS_CONFIG: Record<CampaignStatus, { label: string; color: string; bgColor: string }> = {
-  rascunho: { label: 'Rascunho', color: 'text-muted-foreground', bgColor: 'bg-muted' },
-  ativa: { label: 'Ativa', color: 'text-foreground', bgColor: 'bg-chart-4' },
-  pausada: { label: 'Pausada', color: 'text-foreground', bgColor: 'bg-secondary' },
-  finalizada: { label: 'Finalizada', color: 'text-accent-foreground', bgColor: 'bg-accent' },
+// 4. Configuração visual para o Kanban e Modal
+export const LEAD_STAGE_CONFIG: Record<LeadStage, { label: string; color: string; bgColor: string }> = {
+  'Base': { label: 'Base', color: 'text-black', bgColor: 'bg-gray-200' },
+  'Lead Mapeado': { label: 'Lead Mapeado', color: 'text-black', bgColor: 'bg-blue-200' },
+  'Tentando Contato': { label: 'Tentando Contato', color: 'text-black', bgColor: 'bg-yellow-200' },
+  'Conexão Iniciada': { label: 'Conexão Iniciada', color: 'text-black', bgColor: 'bg-orange-200' },
+  'Qualificado': { label: 'Qualificado', color: 'text-black', bgColor: 'bg-green-300' },
+  'Reunião Agendada': { label: 'Reunião Agendada', color: 'text-black', bgColor: 'bg-purple-300' },
+  'Desqualificado': { label: 'Desqualificado', color: 'text-white', bgColor: 'bg-red-500' },
 }
