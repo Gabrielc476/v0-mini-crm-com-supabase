@@ -22,6 +22,7 @@ interface AIGenerationContextType {
   startGeneration: (leadId: string, leadName: string, campaignId: string, campaignName: string) => void
   clearCompletedTasks: () => void
   clearTask: (taskId: string) => void
+  openModal: (taskId: string) => void
 }
 
 const AIGenerationContext = createContext<AIGenerationContextType | null>(null)
@@ -51,7 +52,6 @@ export function AIGenerationProvider({ children }: { children: ReactNode }) {
     }
 
     setTasks((prev: GenerationTask[]) => [newTask, ...prev])
-    setActiveTaskId(taskId)
 
     // Executa a geração em background
     try {
@@ -114,7 +114,8 @@ export function AIGenerationProvider({ children }: { children: ReactNode }) {
       pendingCount,
       startGeneration,
       clearCompletedTasks,
-      clearTask
+      clearTask,
+      openModal: setActiveTaskId
     }}>
       {children}
       <MessageGenerationModal

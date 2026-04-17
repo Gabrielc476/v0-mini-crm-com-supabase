@@ -4,7 +4,7 @@ import { useAIGeneration } from '@/contexts/ai-generation-context'
 import { X, Loader2, CheckCircle, AlertCircle, Sparkles, Trash2 } from 'lucide-react'
 
 export function GenerationNotifications() {
-  const { tasks, pendingCount, clearCompletedTasks, clearTask } = useAIGeneration()
+  const { tasks, pendingCount, clearCompletedTasks, clearTask, openModal } = useAIGeneration()
 
   if (tasks.length === 0) return null
 
@@ -37,7 +37,8 @@ export function GenerationNotifications() {
         {tasks.map(task => (
           <div
             key={task.id}
-            className={`p-3 border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] ${
+            onClick={() => openModal(task.id)}
+            className={`p-3 border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] cursor-pointer hover:-translate-y-1 hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] transition-all ${
               task.status === 'generating' ? 'bg-yellow-100' :
               task.status === 'success' ? 'bg-green-100' :
               'bg-red-100'
@@ -60,7 +61,10 @@ export function GenerationNotifications() {
                 )}
                 {task.status !== 'generating' && (
                   <button
-                    onClick={() => clearTask(task.id)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      clearTask(task.id);
+                    }}
                     className="p-0.5 hover:bg-black/10 transition-colors"
                   >
                     <X className="w-3 h-3" />
