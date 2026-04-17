@@ -201,19 +201,25 @@ export function LeadModal({ lead, stages, isOpen, onClose, onUpdate, onCreate, o
         console.error('Erro ao atualizar:', error)
       }
     } else {
+      const payloadFinal = {
+        ...payload,
+        workspace_id: activeWorkspaceId,
+        user_id: user.id
+      }
+      
+      console.log("[DEBUG] Payload final tentando inserir Lead:", payloadFinal)
+
       const { data, error } = await supabase
         .from('leads')
-        .insert({
-          ...payload,
-          workspace_id: activeWorkspaceId
-        })
+        .insert(payloadFinal)
         .select()
         .single()
 
       if (!error && data) {
         onCreate(data)
       } else {
-        console.error('Error creating lead:', error)
+        console.error('Error creating lead no supabase (RLS?):', error)
+        alert(`Falha no banco ao criar lead: ${error?.message}`)
       }
     }
 
