@@ -38,7 +38,7 @@ export default async function CampanhasPage() {
   return (
     <div className="h-full">
       <h2 className="text-3xl font-bold tracking-tight mb-8">Campanhas</h2>
-      <CampaignsList key={activeWorkspaceId} initialCampaigns={campaigns || []} stages={uniqueStages} />
+      <CampaignsList key={activeWorkspaceId} initialCampaigns={campaigns || []} stages={uniqueStages} activeWorkspaceId={activeWorkspaceId} />
     </div>
   )
 }

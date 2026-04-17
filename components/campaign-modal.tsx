@@ -13,6 +13,7 @@ interface CampaignModalProps {
   onUpdate: (campaign: Campaign) => void
   onCreate: (campaign: Campaign) => void
   onDelete: (campaignId: string) => void
+  activeWorkspaceId: string
 }
 
 export function CampaignModal({
@@ -23,6 +24,7 @@ export function CampaignModal({
   onUpdate,
   onCreate,
   onDelete,
+  activeWorkspaceId,
 }: CampaignModalProps) {
   const [formData, setFormData] = useState({
     name: '',
@@ -91,24 +93,11 @@ export function CampaignModal({
         console.error('Erro ao atualizar campanha:', error)
       }
     } else {
-      // Create new campaign: Buscar o workspace_id primeiro
-      const { data: workspaceData, error: wsError } = await supabase
-        .from('user_workspaces')
-        .select('workspace_id')
-        .eq('user_id', user.id)
-        .single()
-
-      if (wsError || !workspaceData) {
-        console.error('Erro ao buscar workspace do usuário:', wsError)
-        setSaving(false)
-        return
-      }
-
       const { data, error } = await supabase
         .from('campaigns')
         .insert({
           ...payload,
-          workspace_id: workspaceData.workspace_id
+          workspace_id: activeWorkspaceId
         })
         .select()
         .single()

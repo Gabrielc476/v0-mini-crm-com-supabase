@@ -236,6 +236,9 @@ export function LeadModal({ lead, stages, isOpen, onClose, onUpdate, onCreate, o
 
     if (!error) {
       onDelete(lead.id)
+    } else {
+      console.error('Erro ao deletar lead:', error)
+      alert(`Erro ao excluir: ${error.message}`)
     }
     setDeleting(false)
   }

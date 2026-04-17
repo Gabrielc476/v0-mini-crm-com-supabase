@@ -9,9 +9,10 @@ import { Plus, Calendar, Megaphone } from 'lucide-react'
 interface CampaignsListProps {
   initialCampaigns: Campaign[]
   stages: FunnelStage[]
+  activeWorkspaceId: string
 }
 
-export function CampaignsList({ initialCampaigns, stages }: CampaignsListProps) {
+export function CampaignsList({ initialCampaigns, stages, activeWorkspaceId }: CampaignsListProps) {
   const [campaigns, setCampaigns] = useState<Campaign[]>(initialCampaigns)
   const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -116,6 +117,7 @@ export function CampaignsList({ initialCampaigns, stages }: CampaignsListProps) 
         onUpdate={handleCampaignUpdate}
         onCreate={handleCampaignCreate}
         onDelete={handleCampaignDelete}
+        activeWorkspaceId={activeWorkspaceId}
       />
     </div>
   )
