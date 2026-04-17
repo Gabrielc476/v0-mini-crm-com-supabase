@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Lead, LEAD_STATUS_CONFIG } from '@/lib/types'
+import { Lead, LEAD_STAGE_CONFIG } from '@/lib/types'
 import { LeadModal } from './lead-modal'
 import { Plus, Search } from 'lucide-react'
 
@@ -15,7 +15,7 @@ export function LeadsTable({ initialLeads }: LeadsTableProps) {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
 
-  const filteredLeads = leads.filter(lead => 
+  const filteredLeads = leads.filter(lead =>
     lead.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     lead.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     lead.company?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -32,7 +32,7 @@ export function LeadsTable({ initialLeads }: LeadsTableProps) {
   }
 
   const handleLeadUpdate = (updatedLead: Lead) => {
-    setLeads(prev => prev.map(lead => 
+    setLeads(prev => prev.map(lead =>
       lead.id === updatedLead.id ? updatedLead : lead
     ))
     setSelectedLead(updatedLead)
@@ -100,7 +100,7 @@ export function LeadsTable({ initialLeads }: LeadsTableProps) {
               </tr>
             ) : (
               filteredLeads.map(lead => {
-                const statusConfig = LEAD_STATUS_CONFIG[lead.status]
+                const statusConfig = LEAD_STAGE_CONFIG[lead.stage]
                 return (
                   <tr
                     key={lead.id}
