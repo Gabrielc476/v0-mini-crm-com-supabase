@@ -1,9 +1,9 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Campaign, CampaignStatus, Lead, CAMPAIGN_STATUS_CONFIG } from '@/lib/types'
+import { Campaign, LeadStage } from '@/lib/types'
 import { createClient } from '@/lib/supabase/client'
-import { X, Trash2, UserPlus, UserMinus } from 'lucide-react'
+import { X, Trash2 } from 'lucide-react'
 
 interface CampaignModalProps {
   campaign: Campaign | null
@@ -12,24 +12,24 @@ interface CampaignModalProps {
   onUpdate: (campaign: Campaign) => void
   onCreate: (campaign: Campaign) => void
   onDelete: (campaignId: string) => void
-  availableLeads: Pick<Lead, 'id' | 'name' | 'company'>[]
 }
 
-export function CampaignModal({ 
-  campaign, 
-  isOpen, 
-  onClose, 
-  onUpdate, 
-  onCreate, 
+export function CampaignModal({
+  campaign,
+  isOpen,
+  onClose,
+  onUpdate,
+  onCreate,
   onDelete,
-  availableLeads 
 }: CampaignModalProps) {
   const [formData, setFormData] = useState({
     name: '',
-    description: '',
-    status: 'rascunho' as CampaignStatus,
+    context_description: '',
+    prompt_instructions: '',
+    trigger_stage: '' as LeadStage | '',
+    is_active: true,
   })
-  const [campaignLeads, setCampaignLeads] = useState<string[]>([])
+
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const supabase = createClient()
@@ -38,30 +38,21 @@ export function CampaignModal({
     if (campaign) {
       setFormData({
         name: campaign.name,
-        description: campaign.description || '',
-        status: campaign.status,
+        context_description: campaign.context_description || '',
+        prompt_instructions: campaign.prompt_instructions || '',
+        trigger_stage: campaign.trigger_stage || '',
+        is_active: campaign.is_active,
       })
-      loadCampaignLeads(campaign.id)
     } else {
       setFormData({
         name: '',
-        description: '',
-        status: 'rascunho',
+        context_description: '',
+        prompt_instructions: '',
+        trigger_stage: '',
+        is_active: true,
       })
-      setCampaignLeads([])
     }
   }, [campaign])
-
-  const loadCampaignLeads = async (campaignId: string) => {
-    const { data } = await supabase
-      .from('campaign_leads')
-      .select('lead_id')
-      .eq('campaign_id', campaignId)
-
-    if (data) {
-      setCampaignLeads(data.map(cl => cl.lead_id))
-    }
-  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -73,14 +64,20 @@ export function CampaignModal({
       return
     }
 
+    const payload = {
+      name: formData.name,
+      context_description: formData.context_description || null,
+      prompt_instructions: formData.prompt_instructions || null,
+      trigger_stage: formData.trigger_stage || null,
+      is_active: formData.is_active,
+    }
+
     if (campaign) {
       // Update existing campaign
       const { data, error } = await supabase
         .from('campaigns')
         .update({
-          ...formData,
-          description: formData.description || null,
-          updated_at: new Date().toISOString(),
+          ...payload,
         })
         .eq('id', campaign.id)
         .select()
@@ -88,19 +85,35 @@ export function CampaignModal({
 
       if (!error && data) {
         onUpdate(data)
+      } else {
+        console.error('Erro ao atualizar campanha:', error)
       }
     } else {
-      // Create new campaign
+      // Create new campaign: Buscar o workspace_id primeiro
+      const { data: workspaceData, error: wsError } = await supabase
+        .from('user_workspaces')
+        .select('workspace_id')
+        .eq('user_id', user.id)
+        .single()
+
+      if (wsError || !workspaceData) {
+        console.error('Erro ao buscar workspace do usuário:', wsError)
+        setSaving(false)
+        return
+      }
+
       const { data, error } = await supabase
         .from('campaigns')
         .insert({
-          ...formData,
-          user_id: user.id,
-          description: formData.description || null,
+          ...payload,
+          workspace_id: workspaceData.workspace_id
         })
         .select()
         .single()
 
+      if (error) {
+        console.error('Erro ao criar campanha:', error)
+      }
       if (!error && data) {
         onCreate(data)
       }
@@ -111,7 +124,7 @@ export function CampaignModal({
 
   const handleDelete = async () => {
     if (!campaign || !confirm('Tem certeza que deseja excluir esta campanha?')) return
-    
+
     setDeleting(true)
     const { error } = await supabase
       .from('campaigns')
@@ -124,58 +137,28 @@ export function CampaignModal({
     setDeleting(false)
   }
 
-  const toggleLeadInCampaign = async (leadId: string) => {
-    if (!campaign) return
-
-    const isInCampaign = campaignLeads.includes(leadId)
-
-    if (isInCampaign) {
-      // Remove lead from campaign
-      const { error } = await supabase
-        .from('campaign_leads')
-        .delete()
-        .eq('campaign_id', campaign.id)
-        .eq('lead_id', leadId)
-
-      if (!error) {
-        setCampaignLeads(prev => prev.filter(id => id !== leadId))
-      }
-    } else {
-      // Add lead to campaign
-      const { error } = await supabase
-        .from('campaign_leads')
-        .insert({
-          campaign_id: campaign.id,
-          lead_id: leadId,
-        })
-
-      if (!error) {
-        setCampaignLeads(prev => [...prev, leadId])
-      }
-    }
-  }
-
   if (!isOpen) return null
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-foreground/20" onClick={onClose} />
-      
-      <div className="relative neo-card rounded-lg w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
-        <div className="flex items-center justify-between p-6 border-b-3 border-foreground">
+
+      <div className="relative neo-card rounded-lg w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col bg-background">
+        <div className="flex items-center justify-between p-6 border-b-4 border-black">
           <h2 className="text-xl font-bold">
             {campaign ? 'Detalhes da Campanha' : 'Nova Campanha'}
           </h2>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-muted rounded-lg transition-colors"
+            className="p-2 hover:bg-muted rounded-lg transition-colors border-2 border-transparent hover:border-black"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         <div className="flex-1 overflow-y-auto p-6">
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-6">
+
             <div className="space-y-2">
               <label className="block text-sm font-bold uppercase tracking-wide">
                 Nome da Campanha *
@@ -184,47 +167,80 @@ export function CampaignModal({
                 type="text"
                 value={formData.name}
                 onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                className="w-full px-4 py-3 neo-border-sm rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-accent"
+                className="w-full px-4 py-3 border-4 border-black rounded-none bg-white focus:outline-none focus:ring-4 focus:ring-accent shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
+                placeholder="Ex: Black Friday 2024"
                 required
               />
             </div>
 
             <div className="space-y-2">
               <label className="block text-sm font-bold uppercase tracking-wide">
-                Descricao
+                Contexto (Oferta/Produto)
               </label>
               <textarea
-                value={formData.description}
-                onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                value={formData.context_description}
+                onChange={(e) => setFormData(prev => ({ ...prev, context_description: e.target.value }))}
                 rows={3}
-                className="w-full px-4 py-3 neo-border-sm rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-accent resize-none"
+                placeholder="Ex: Estamos oferecendo 50% de desconto na primeira assinatura..."
+                className="w-full px-4 py-3 border-4 border-black rounded-none bg-white focus:outline-none focus:ring-4 focus:ring-accent resize-none shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
               />
             </div>
 
             <div className="space-y-2">
               <label className="block text-sm font-bold uppercase tracking-wide">
-                Status
+                Instruções de Prompt / Persona da IA
               </label>
-              <select
-                value={formData.status}
-                onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value as CampaignStatus }))}
-                className="w-full px-4 py-3 neo-border-sm rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-accent"
-              >
-                {Object.entries(CAMPAIGN_STATUS_CONFIG).map(([status, config]) => (
-                  <option key={status} value={status}>
-                    {config.label}
-                  </option>
-                ))}
-              </select>
+              <textarea
+                value={formData.prompt_instructions}
+                onChange={(e) => setFormData(prev => ({ ...prev, prompt_instructions: e.target.value }))}
+                rows={3}
+                placeholder="Ex: Escreva de forma descontraída, como um consultor sênior. Use emojis."
+                className="w-full px-4 py-3 border-4 border-black rounded-none bg-white focus:outline-none focus:ring-4 focus:ring-accent resize-none shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
+              />
             </div>
 
-            <div className="flex items-center gap-3 pt-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="block text-sm font-bold uppercase tracking-wide">
+                  Etapa Gatilho (Opcional)
+                </label>
+                <select
+                  value={formData.trigger_stage}
+                  onChange={(e) => setFormData(prev => ({ ...prev, trigger_stage: e.target.value as LeadStage | '' }))}
+                  className="w-full px-4 py-3 border-4 border-black rounded-none bg-white focus:outline-none focus:ring-4 focus:ring-accent shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
+                >
+                  <option value="">Nenhum gatilho</option>
+                  <option value="Base">Base</option>
+                  <option value="Lead Mapeado">Lead Mapeado</option>
+                  <option value="Tentando Contato">Tentando Contato</option>
+                  <option value="Conexão Iniciada">Conexão Iniciada</option>
+                  <option value="Qualificado">Qualificado</option>
+                  <option value="Reunião Agendada">Reunião Agendada</option>
+                </select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="block text-sm font-bold uppercase tracking-wide">
+                  Status da Campanha
+                </label>
+                <select
+                  value={formData.is_active ? 'true' : 'false'}
+                  onChange={(e) => setFormData(prev => ({ ...prev, is_active: e.target.value === 'true' }))}
+                  className="w-full px-4 py-3 border-4 border-black rounded-none bg-white focus:outline-none focus:ring-4 focus:ring-accent shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
+                >
+                  <option value="true">🟢 Ativa</option>
+                  <option value="false">🔴 Inativa</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3 pt-4 border-t-4 border-black mt-6">
               <button
                 type="submit"
                 disabled={saving}
-                className="flex-1 py-3 px-4 bg-primary text-primary-foreground font-bold uppercase tracking-wide neo-button rounded-lg disabled:opacity-50"
+                className="flex-1 mt-4 py-3 px-4 bg-green-400 text-black border-4 border-black font-bold uppercase tracking-wide shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-all disabled:opacity-50"
               >
-                {saving ? 'Salvando...' : campaign ? 'Salvar' : 'Criar Campanha'}
+                {saving ? 'Salvando...' : campaign ? 'Salvar Alterações' : 'Criar Campanha'}
               </button>
 
               {campaign && (
@@ -232,64 +248,13 @@ export function CampaignModal({
                   type="button"
                   onClick={handleDelete}
                   disabled={deleting}
-                  className="py-3 px-4 bg-destructive text-destructive-foreground font-bold neo-button rounded-lg disabled:opacity-50"
+                  className="mt-4 py-3 px-4 bg-red-400 text-black border-4 border-black font-bold shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-all disabled:opacity-50"
                 >
                   <Trash2 className="w-5 h-5" />
                 </button>
               )}
             </div>
           </form>
-
-          {campaign && (
-            <div className="mt-8 pt-6 border-t-3 border-foreground">
-              <h3 className="text-lg font-bold mb-4">Leads na Campanha</h3>
-
-              <div className="space-y-2 max-h-64 overflow-y-auto">
-                {availableLeads.length === 0 ? (
-                  <p className="text-muted-foreground text-center py-4">
-                    Nenhum lead disponivel. Crie leads primeiro.
-                  </p>
-                ) : (
-                  availableLeads.map(lead => {
-                    const isInCampaign = campaignLeads.includes(lead.id)
-                    return (
-                      <div
-                        key={lead.id}
-                        className={`flex items-center justify-between p-3 rounded-lg neo-border-sm ${
-                          isInCampaign ? 'bg-accent/20' : 'bg-muted'
-                        }`}
-                      >
-                        <div>
-                          <p className="font-bold">{lead.name}</p>
-                          {lead.company && (
-                            <p className="text-sm text-muted-foreground">{lead.company}</p>
-                          )}
-                        </div>
-                        <button
-                          onClick={() => toggleLeadInCampaign(lead.id)}
-                          className={`p-2 rounded-lg transition-colors ${
-                            isInCampaign 
-                              ? 'bg-destructive/10 text-destructive hover:bg-destructive/20' 
-                              : 'bg-accent/10 text-accent hover:bg-accent/20'
-                          }`}
-                        >
-                          {isInCampaign ? (
-                            <UserMinus className="w-5 h-5" />
-                          ) : (
-                            <UserPlus className="w-5 h-5" />
-                          )}
-                        </button>
-                      </div>
-                    )
-                  })
-                )}
-              </div>
-
-              <p className="mt-4 text-sm text-muted-foreground">
-                {campaignLeads.length} lead{campaignLeads.length !== 1 ? 's' : ''} nesta campanha
-              </p>
-            </div>
-          )}
         </div>
       </div>
     </div>
