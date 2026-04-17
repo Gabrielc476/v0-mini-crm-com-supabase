@@ -16,7 +16,7 @@ export default async function HomePage() {
         <div className="neo-card p-3 inline-block mb-8 bg-primary rounded-lg">
           <h1 className="text-4xl md:text-6xl font-bold">Mini CRM</h1>
         </div>
-        
+
         <p className="text-xl md:text-2xl text-muted-foreground mb-8">
           O CRM minimalista para SDRs que valorizam produtividade
         </p>
@@ -51,7 +51,7 @@ export default async function HomePage() {
           </div>
           <div className="neo-card p-6 rounded-lg bg-accent text-accent-foreground">
             <h3 className="text-lg font-bold mb-2">Campanhas</h3>
-            <p className="text-sm">
+            <p className="text-sm text-muted-foreground">
               Organize seus leads em campanhas de prospeccao
             </p>
           </div>
